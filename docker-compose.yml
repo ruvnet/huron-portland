@@ -1,0 +1,141 @@
+# =============================================================================
+# Huron Grants Management System - Docker Compose
+# =============================================================================
+# Full stack deployment with PostgreSQL (pgvector), Embeddings, Backend, and Frontend
+
+services:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL with pgvector for vector embeddings
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: huron-grants-postgres
+    restart: unless-stopped
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-huron_grants}
+      POSTGRES_USER: ${POSTGRES_USER:-huron_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-huron_admin} -d ${POSTGRES_DB:-huron_grants}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - huron-network
+
+  # ---------------------------------------------------------------------------
+  # RuVector Embeddings Service
+  # ---------------------------------------------------------------------------
+  embeddings:
+    image: ghcr.io/ruvnet/ruvector-embeddings:latest
+    container_name: huron-grants-embeddings
+    restart: unless-stopped
+    ports:
+      - "${EMBEDDINGS_PORT:-8080}:8080"
+    environment:
+      MODEL_NAME: ${EMBEDDING_MODEL:-all-MiniLM-L6-v2}
+      CACHE_ENABLED: "true"
+      CACHE_TTL: "3600"
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - huron-network
+
+  # ---------------------------------------------------------------------------
+  # Go Backend API Service
+  # ---------------------------------------------------------------------------
+  backend:
+    build:
+      context: ./src/backend
+      dockerfile: Dockerfile
+    container_name: huron-grants-backend
+    restart: unless-stopped
+    ports:
+      - "${BACKEND_PORT:-3001}:3001"
+    environment:
+      # Database
+      DATABASE_URL: postgres://${POSTGRES_USER:-huron_admin}:${POSTGRES_PASSWORD:-dev_password}@postgres:5432/${POSTGRES_DB:-huron_grants}?sslmode=disable
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-huron_grants}
+      POSTGRES_USER: ${POSTGRES_USER:-huron_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_password}
+      # Embeddings
+      EMBEDDINGS_URL: http://embeddings:8080
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-all-MiniLM-L6-v2}
+      # Application
+      PORT: 3001
+      ENV: ${ENV:-development}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      # AI Providers (optional)
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      # Security
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-in-production}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - huron-network
+
+  # ---------------------------------------------------------------------------
+  # Next.js Frontend Application
+  # ---------------------------------------------------------------------------
+  frontend:
+    build:
+      context: ./src/frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
+    container_name: huron-grants-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
+      NEXT_PUBLIC_EMBEDDINGS_URL: ${NEXT_PUBLIC_EMBEDDINGS_URL:-http://localhost:8080}
+      NODE_ENV: ${NODE_ENV:-production}
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - huron-network
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  postgres_data:
+    driver: local
+    name: huron-grants-postgres-data
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  huron-network:
+    driver: bridge
+    name: huron-grants-network

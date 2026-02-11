@@ -1,0 +1,109 @@
+# Dependencies
+node_modules/
+vendor/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+out/
+.next/
+.nuxt/
+.output/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Go
+bin/
+*.test
+go.work
+go.work.sum
+
+# Rust
+debug/
+target/
+**/*.rs.bk
+*.pdb
+**/mutants.out*/
+
+# Environment
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Testing
+coverage/
+.nyc_output/
+*.lcov
+test-results/
+playwright-report/
+playwright/.cache/
+
+# Docker
+*.tar
+docker-compose.override.yml
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+postgres_data/
+
+# Cache
+.cache/
+.parcel-cache/
+.turbo/
+.vercel/
+.netlify/
+
+# Temporary
+tmp/
+temp/
+*.tmp
+*.temp
+*.bak
+
+# Claude Flow
+.claude-flow/daemon-state.json
+.claude-flow/daemon.pid
+.claude-flow/metrics/*.json
+.claude-flow/memory/*.db
+.claude-flow/cache/
+
+# WASM
+*.wasm.map
+
+# Secrets (never commit)
+*.pem
+*.key
+*.crt
+credentials.json
+secrets.json

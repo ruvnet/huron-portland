@@ -1,0 +1,26 @@
+# Huron Bangalore Hackathon - Claude Code Aliases
+# Source this file in your .bashrc: source /workspaces/huron-bangalore/.bashrc.aliases
+
+# Claude Code with dangerous permissions skipped (for automated workflows)
+alias dsp='claude --dangerously-skip-permissions'
+
+# Claude Code continue session with dangerous permissions skipped
+alias dsp-c='claude -c --dangerously-skip-permissions'
+
+# Additional convenience aliases
+alias dsp-resume='claude --resume --dangerously-skip-permissions'
+alias dsp-print='claude -p --dangerously-skip-permissions'
+
+# Claude Flow shortcuts
+alias cf='npx @claude-flow/cli@latest'
+alias cf-swarm='npx @claude-flow/cli@latest swarm'
+alias cf-memory='npx @claude-flow/cli@latest memory'
+alias cf-hooks='npx @claude-flow/cli@latest hooks'
+
+# Project shortcuts
+alias hcg-setup='./scripts/setup.sh'
+alias hcg-demo='./scripts/demo.sh'
+alias hcg-validate='./scripts/validate.sh'
+alias hcg-test='./scripts/test-e2e.sh'
+
+echo "Huron Bangalore aliases loaded: dsp, dsp-c, cf, hcg-*"

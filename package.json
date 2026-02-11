@@ -1,0 +1,42 @@
+{
+  "name": "huron-grants-ruvector",
+  "version": "1.0.0",
+  "description": "SOTA Grants Management with RuVector Self-Learning",
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint src/",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest",
+    "db:migrate": "prisma migrate dev",
+    "db:generate": "prisma generate",
+    "ruvector:train": "npx @claude-flow/cli@latest neural train --pattern-type coordination",
+    "ruvector:status": "npx @claude-flow/cli@latest neural status"
+  },
+  "dependencies": {
+    "ruvector": "latest",
+    "@ruvector/attention": "latest",
+    "rvlite": "latest",
+    "@claude-flow/cli": "latest",
+    "agentic-flow": "latest",
+    "@prisma/client": "^5.0.0",
+    "pg": "^8.11.0",
+    "pgvector": "^0.1.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/pg": "^8.10.0",
+    "typescript": "^5.3.0",
+    "vite": "^5.0.0",
+    "vitest": "^1.0.0",
+    "prisma": "^5.0.0",
+    "eslint": "^8.56.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

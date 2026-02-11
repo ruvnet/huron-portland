@@ -1,0 +1,144 @@
+# =============================================================================
+# Huron Grants Management System - E2E Testing Docker Compose
+# =============================================================================
+# Browser-based E2E testing with Playwright in containerized environment
+
+version: '3.8'
+
+services:
+  # ---------------------------------------------------------------------------
+  # E2E Test Runner with Playwright
+  # ---------------------------------------------------------------------------
+  e2e-runner:
+    build:
+      context: ./src/frontend
+      dockerfile: Dockerfile.e2e
+    container_name: huron-grants-e2e-runner
+    environment:
+      - PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+      - CI=true
+      - BASE_URL=http://frontend:3000
+      - API_URL=http://backend:3001
+    volumes:
+      - ./src/frontend/e2e:/app/e2e
+      - ./src/frontend/test-results:/app/test-results
+      - ./src/frontend/playwright-report:/app/playwright-report
+    depends_on:
+      frontend:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    command: npm run test:e2e
+    networks:
+      - huron-test-network
+
+  # ---------------------------------------------------------------------------
+  # Next.js Frontend Application (Test Environment)
+  # ---------------------------------------------------------------------------
+  frontend:
+    build:
+      context: ./src/frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://backend:3001
+    container_name: huron-grants-frontend-test
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://backend:3001
+      - NODE_ENV=test
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 30s
+    networks:
+      - huron-test-network
+
+  # ---------------------------------------------------------------------------
+  # Go Backend API Service (Test Environment)
+  # ---------------------------------------------------------------------------
+  backend:
+    build:
+      context: ./src/backend
+      dockerfile: Dockerfile
+    container_name: huron-grants-backend-test
+    ports:
+      - "3001:3001"
+    environment:
+      - DATABASE_URL=postgres://huron_admin:dev_password@postgres:5432/huron_grants?sslmode=disable
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=huron_grants
+      - POSTGRES_USER=huron_admin
+      - POSTGRES_PASSWORD=dev_password
+      - REDIS_URL=redis://:dev_password@redis:6379
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=dev_password
+      - PORT=3001
+      - ENV=test
+      - LOG_LEVEL=debug
+      - JWT_SECRET=test-jwt-secret
+      - CORS_ORIGINS=http://localhost:3000,http://frontend:3000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 20s
+    networks:
+      - huron-test-network
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL with pgvector (Test Environment)
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: huron-grants-postgres-test
+    environment:
+      POSTGRES_DB: huron_grants
+      POSTGRES_USER: huron_admin
+      POSTGRES_PASSWORD: dev_password
+    volumes:
+      - ./init-scripts:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U huron_admin -d huron_grants"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    networks:
+      - huron-test-network
+
+  # ---------------------------------------------------------------------------
+  # Redis (Test Environment)
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: huron-grants-redis-test
+    command: redis-server --appendonly yes --requirepass dev_password
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "dev_password", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - huron-test-network
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  huron-test-network:
+    driver: bridge
+    name: huron-grants-test-network

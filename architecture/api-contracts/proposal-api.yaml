@@ -1,0 +1,1205 @@
+# Proposal API Contract
+# OpenAPI 3.0 Specification
+
+openapi: 3.0.3
+info:
+  title: HRS Grants Module - Proposal API
+  description: |
+    API for managing grant proposals throughout their lifecycle.
+    Supports creation, review, approval, and submission workflows.
+  version: 1.0.0
+  contact:
+    name: HRS Grants Team
+    email: grants-support@hrs.example.com
+
+servers:
+  - url: https://api.hrs-grants.example.com/api/v1
+    description: Production
+  - url: https://api-staging.hrs-grants.example.com/api/v1
+    description: Staging
+  - url: http://localhost:8080/api/v1
+    description: Development
+
+tags:
+  - name: Proposals
+    description: Proposal CRUD operations
+  - name: Proposal Actions
+    description: State transitions and workflow actions
+  - name: Proposal Team
+    description: Team member management
+  - name: Proposal Documents
+    description: Document and attachment management
+
+security:
+  - bearerAuth: []
+
+paths:
+  /proposals:
+    get:
+      summary: List proposals
+      description: |
+        Returns a paginated list of proposals the authenticated user has access to.
+        Results can be filtered by status, department, sponsor, and date range.
+      operationId: listProposals
+      tags:
+        - Proposals
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+        - $ref: '#/components/parameters/SortParam'
+        - name: status
+          in: query
+          description: Filter by proposal status (comma-separated for multiple)
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/ProposalStatus'
+          style: form
+          explode: false
+        - name: department_id
+          in: query
+          description: Filter by department
+          schema:
+            type: string
+            format: uuid
+        - name: sponsor_id
+          in: query
+          description: Filter by sponsor
+          schema:
+            type: string
+            format: uuid
+        - name: pi_id
+          in: query
+          description: Filter by principal investigator
+          schema:
+            type: string
+            format: uuid
+        - name: created_after
+          in: query
+          description: Filter by creation date (inclusive)
+          schema:
+            type: string
+            format: date
+        - name: created_before
+          in: query
+          description: Filter by creation date (inclusive)
+          schema:
+            type: string
+            format: date
+        - name: q
+          in: query
+          description: Full-text search query
+          schema:
+            type: string
+        - name: include
+          in: query
+          description: Related resources to include
+          schema:
+            type: array
+            items:
+              type: string
+              enum: [budget, team, compliance, documents]
+          style: form
+          explode: false
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProposalListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    post:
+      summary: Create a new proposal
+      description: |
+        Creates a new proposal in DRAFT status.
+        The authenticated user becomes the initial creator and can add team members.
+      operationId: createProposal
+      tags:
+        - Proposals
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProposalRequest'
+            examples:
+              basic:
+                summary: Basic proposal
+                value:
+                  title: "Novel Approaches to Cancer Research"
+                  sponsor_id: "550e8400-e29b-41d4-a716-446655440001"
+                  opportunity_id: "550e8400-e29b-41d4-a716-446655440002"
+                  department_id: "550e8400-e29b-41d4-a716-446655440003"
+                  project_start_date: "2026-07-01"
+                  project_end_date: "2029-06-30"
+                  abstract: "This proposal aims to develop novel therapeutic approaches..."
+      responses:
+        '201':
+          description: Proposal created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProposalResponse'
+          headers:
+            Location:
+              description: URL of the created proposal
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /proposals/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ProposalId'
+
+    get:
+      summary: Get proposal details
+      description: Returns detailed information about a specific proposal
+      operationId: getProposal
+      tags:
+        - Proposals
+      parameters:
+        - name: include
+          in: query
+          description: Related resources to include
+          schema:
+            type: array
+            items:
+              type: string
+              enum: [budget, team, compliance, documents, history]
+          style: form
+          explode: false
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProposalDetailResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      summary: Update proposal
+      description: |
+        Updates proposal fields. Only allowed when proposal is in editable state
+        (DRAFT, IN_PROGRESS, REVISION_IN_PROGRESS).
+      operationId: updateProposal
+      tags:
+        - Proposals
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProposalRequest'
+      responses:
+        '200':
+          description: Proposal updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProposalResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+    delete:
+      summary: Delete proposal
+      description: |
+        Soft deletes a proposal. Only allowed for DRAFT proposals
+        that have not been submitted.
+      operationId: deleteProposal
+      tags:
+        - Proposals
+      responses:
+        '204':
+          description: Proposal deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /proposals/{id}/actions:
+    parameters:
+      - $ref: '#/components/parameters/ProposalId'
+
+    get:
+      summary: Get available actions
+      description: Returns list of actions the current user can perform on this proposal
+      operationId: getProposalActions
+      tags:
+        - Proposal Actions
+      responses:
+        '200':
+          description: List of available actions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AvailableActionsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    post:
+      summary: Execute action
+      description: |
+        Performs a state transition on the proposal.
+        The action must be valid for the current state and user permissions.
+      operationId: executeProposalAction
+      tags:
+        - Proposal Actions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExecuteActionRequest'
+            examples:
+              submit_for_review:
+                summary: Submit for department review
+                value:
+                  action: "SUBMIT_FOR_REVIEW"
+                  reason: "Ready for department review"
+              approve:
+                summary: Approve proposal
+                value:
+                  action: "APPROVE_BY_DEPT"
+                  reason: "Approved after review meeting"
+              reject:
+                summary: Reject proposal
+                value:
+                  action: "REJECT_BY_DEPT"
+                  reason: "Budget needs revision"
+                  metadata:
+                    required_changes: ["Reduce personnel costs", "Add justification for equipment"]
+      responses:
+        '200':
+          description: Action executed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionResultResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Action not allowed in current state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /proposals/{id}/team:
+    parameters:
+      - $ref: '#/components/parameters/ProposalId'
+
+    get:
+      summary: List team members
+      description: Returns all team members for the proposal
+      operationId: listTeamMembers
+      tags:
+        - Proposal Team
+      responses:
+        '200':
+          description: List of team members
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamMemberListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    post:
+      summary: Add team member
+      description: Adds a new team member to the proposal
+      operationId: addTeamMember
+      tags:
+        - Proposal Team
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddTeamMemberRequest'
+      responses:
+        '201':
+          description: Team member added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamMemberResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Person already on team
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /proposals/{id}/team/{memberId}:
+    parameters:
+      - $ref: '#/components/parameters/ProposalId'
+      - name: memberId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+
+    patch:
+      summary: Update team member
+      description: Updates team member role or effort
+      operationId: updateTeamMember
+      tags:
+        - Proposal Team
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTeamMemberRequest'
+      responses:
+        '200':
+          description: Team member updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamMemberResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      summary: Remove team member
+      description: Removes a team member from the proposal
+      operationId: removeTeamMember
+      tags:
+        - Proposal Team
+      responses:
+        '204':
+          description: Team member removed
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Cannot remove PI
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /proposals/{id}/history:
+    parameters:
+      - $ref: '#/components/parameters/ProposalId'
+
+    get:
+      summary: Get proposal history
+      description: Returns the complete state transition history
+      operationId: getProposalHistory
+      tags:
+        - Proposals
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+      responses:
+        '200':
+          description: State transition history
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProposalHistoryResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /proposals/{id}/clone:
+    parameters:
+      - $ref: '#/components/parameters/ProposalId'
+
+    post:
+      summary: Clone proposal
+      description: Creates a copy of the proposal as a new DRAFT
+      operationId: cloneProposal
+      tags:
+        - Proposals
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CloneProposalRequest'
+      responses:
+        '201':
+          description: Proposal cloned successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProposalResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from authentication endpoint
+
+  parameters:
+    ProposalId:
+      name: id
+      in: path
+      required: true
+      description: Proposal unique identifier
+      schema:
+        type: string
+        format: uuid
+
+    PageParam:
+      name: page
+      in: query
+      description: Page number (1-indexed)
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+
+    PerPageParam:
+      name: per_page
+      in: query
+      description: Items per page
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+    SortParam:
+      name: sort
+      in: query
+      description: |
+        Sort field(s). Prefix with - for descending order.
+        Example: -created_at,title
+      schema:
+        type: string
+
+  schemas:
+    ProposalStatus:
+      type: string
+      description: Current state of the proposal in the workflow
+      enum:
+        - DRAFT
+        - IN_PROGRESS
+        - READY_FOR_REVIEW
+        - UNDER_DEPT_REVIEW
+        - DEPT_APPROVED
+        - DEPT_REJECTED
+        - UNDER_SPONSOR_REVIEW
+        - SPONSOR_APPROVED
+        - SPONSOR_REJECTED
+        - READY_FOR_SUBMISSION
+        - SUBMITTING
+        - SUBMITTED
+        - SUBMISSION_FAILED
+        - UNDER_AGENCY_REVIEW
+        - AWARDED
+        - NOT_AWARDED
+        - WITHDRAWN
+        - REVISION_REQUESTED
+        - REVISION_IN_PROGRESS
+        - REVISION_SUBMITTED
+        - ARCHIVED
+
+    ProposalAction:
+      type: string
+      description: Actions that can be performed on a proposal
+      enum:
+        - SAVE_DRAFT
+        - SUBMIT_FOR_REVIEW
+        - APPROVE_BY_DEPT
+        - REJECT_BY_DEPT
+        - RETURN_FOR_REVISION
+        - APPLY_CORRECTIONS
+        - RESUBMIT_FOR_REVIEW
+        - SUBMIT_TO_SPONSOR
+        - APPROVE_BY_SPONSOR
+        - REJECT_BY_SPONSOR
+        - SUBMIT_TO_AGENCY
+        - WITHDRAW
+        - REQUEST_REVISION
+        - START_REVISION
+        - SUBMIT_REVISION
+        - ARCHIVE
+
+    ProposalType:
+      type: string
+      enum:
+        - NEW
+        - RENEWAL
+        - CONTINUATION
+        - REVISION
+
+    TeamRole:
+      type: string
+      enum:
+        - PRINCIPAL_INVESTIGATOR
+        - CO_PRINCIPAL_INVESTIGATOR
+        - SENIOR_PERSONNEL
+        - POST_DOCTORAL
+        - GRADUATE_STUDENT
+        - UNDERGRADUATE
+        - OTHER
+
+    # Request Schemas
+    CreateProposalRequest:
+      type: object
+      required:
+        - title
+        - sponsor_id
+        - department_id
+        - project_start_date
+        - project_end_date
+      properties:
+        title:
+          type: string
+          maxLength: 200
+          description: Proposal title
+        sponsor_id:
+          type: string
+          format: uuid
+          description: Funding sponsor/agency ID
+        opportunity_id:
+          type: string
+          format: uuid
+          description: Funding opportunity ID (optional)
+        department_id:
+          type: string
+          format: uuid
+          description: Submitting department ID
+        project_start_date:
+          type: string
+          format: date
+          description: Proposed project start date
+        project_end_date:
+          type: string
+          format: date
+          description: Proposed project end date
+        abstract:
+          type: string
+          maxLength: 5000
+          description: Project abstract/summary
+        proposal_type:
+          $ref: '#/components/schemas/ProposalType'
+        parent_proposal_id:
+          type: string
+          format: uuid
+          description: Parent proposal ID for renewals/continuations
+
+    UpdateProposalRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 200
+        abstract:
+          type: string
+          maxLength: 5000
+        project_start_date:
+          type: string
+          format: date
+        project_end_date:
+          type: string
+          format: date
+        opportunity_id:
+          type: string
+          format: uuid
+
+    ExecuteActionRequest:
+      type: object
+      required:
+        - action
+      properties:
+        action:
+          $ref: '#/components/schemas/ProposalAction'
+        reason:
+          type: string
+          maxLength: 1000
+          description: Reason for the action (required for some actions)
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Additional action-specific data
+
+    AddTeamMemberRequest:
+      type: object
+      required:
+        - person_id
+        - role
+      properties:
+        person_id:
+          type: string
+          format: uuid
+        role:
+          $ref: '#/components/schemas/TeamRole'
+        effort_percent:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: Percentage of time committed
+        is_pi_surrogate:
+          type: boolean
+          default: false
+
+    UpdateTeamMemberRequest:
+      type: object
+      properties:
+        role:
+          $ref: '#/components/schemas/TeamRole'
+        effort_percent:
+          type: number
+          minimum: 0
+          maximum: 100
+        is_pi_surrogate:
+          type: boolean
+
+    CloneProposalRequest:
+      type: object
+      properties:
+        new_title:
+          type: string
+          maxLength: 200
+          description: Title for the cloned proposal
+        proposal_type:
+          $ref: '#/components/schemas/ProposalType'
+        include_budget:
+          type: boolean
+          default: true
+        include_team:
+          type: boolean
+          default: true
+        include_documents:
+          type: boolean
+          default: false
+
+    # Response Schemas
+    ProposalSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        status:
+          $ref: '#/components/schemas/ProposalStatus'
+        sponsor_name:
+          type: string
+        pi_name:
+          type: string
+        department_name:
+          type: string
+        project_start_date:
+          type: string
+          format: date
+        project_end_date:
+          type: string
+          format: date
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ProposalDetail:
+      allOf:
+        - $ref: '#/components/schemas/ProposalSummary'
+        - type: object
+          properties:
+            abstract:
+              type: string
+            proposal_type:
+              $ref: '#/components/schemas/ProposalType'
+            sponsor:
+              $ref: '#/components/schemas/SponsorRef'
+            opportunity:
+              $ref: '#/components/schemas/OpportunityRef'
+            principal_investigator:
+              $ref: '#/components/schemas/PersonRef'
+            department:
+              $ref: '#/components/schemas/DepartmentRef'
+            submission_deadline:
+              type: string
+              format: date-time
+            created_by:
+              $ref: '#/components/schemas/PersonRef'
+            updated_by:
+              $ref: '#/components/schemas/PersonRef'
+            version:
+              type: integer
+
+    TeamMember:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        person:
+          $ref: '#/components/schemas/PersonRef'
+        role:
+          $ref: '#/components/schemas/TeamRole'
+        effort_percent:
+          type: number
+        is_pi_surrogate:
+          type: boolean
+        added_at:
+          type: string
+          format: date-time
+
+    StateTransition:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        from_state:
+          $ref: '#/components/schemas/ProposalStatus'
+        to_state:
+          $ref: '#/components/schemas/ProposalStatus'
+        action:
+          $ref: '#/components/schemas/ProposalAction'
+        actor:
+          $ref: '#/components/schemas/PersonRef'
+        reason:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    AvailableAction:
+      type: object
+      properties:
+        action:
+          $ref: '#/components/schemas/ProposalAction'
+        label:
+          type: string
+          description: Human-readable action label
+        requires_reason:
+          type: boolean
+        confirmation_required:
+          type: boolean
+
+    # Reference Schemas
+    PersonRef:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+
+    SponsorRef:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        code:
+          type: string
+
+    OpportunityRef:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        number:
+          type: string
+        title:
+          type: string
+        cfda_number:
+          type: string
+
+    DepartmentRef:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        code:
+          type: string
+
+    # Response Wrappers
+    ProposalResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/ProposalDetail'
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+        links:
+          $ref: '#/components/schemas/ProposalLinks'
+
+    ProposalListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProposalSummary'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+        links:
+          $ref: '#/components/schemas/PaginationLinks'
+
+    ProposalDetailResponse:
+      allOf:
+        - $ref: '#/components/schemas/ProposalResponse'
+        - type: object
+          properties:
+            data:
+              allOf:
+                - $ref: '#/components/schemas/ProposalDetail'
+                - type: object
+                  properties:
+                    budget:
+                      $ref: '#/components/schemas/BudgetSummary'
+                    team:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/TeamMember'
+                    compliance:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/ComplianceSummary'
+
+    AvailableActionsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            current_status:
+              $ref: '#/components/schemas/ProposalStatus'
+            available_actions:
+              type: array
+              items:
+                $ref: '#/components/schemas/AvailableAction'
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+
+    ActionResultResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            proposal_id:
+              type: string
+              format: uuid
+            previous_status:
+              $ref: '#/components/schemas/ProposalStatus'
+            current_status:
+              $ref: '#/components/schemas/ProposalStatus'
+            action:
+              $ref: '#/components/schemas/ProposalAction'
+            actor:
+              $ref: '#/components/schemas/PersonRef'
+            timestamp:
+              type: string
+              format: date-time
+            available_actions:
+              type: array
+              items:
+                $ref: '#/components/schemas/ProposalAction'
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+
+    TeamMemberResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/TeamMember'
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+
+    TeamMemberListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/TeamMember'
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+
+    ProposalHistoryResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/StateTransition'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+        links:
+          $ref: '#/components/schemas/PaginationLinks'
+
+    # Stub schemas for included resources
+    BudgetSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        total_direct_costs:
+          type: integer
+        total_indirect_costs:
+          type: integer
+        total_cost:
+          type: integer
+        status:
+          type: string
+
+    ComplianceSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+        status:
+          type: string
+        protocol_number:
+          type: string
+
+    # Meta Schemas
+    ResponseMeta:
+      type: object
+      properties:
+        request_id:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    PaginationMeta:
+      allOf:
+        - $ref: '#/components/schemas/ResponseMeta'
+        - type: object
+          properties:
+            total:
+              type: integer
+            page:
+              type: integer
+            per_page:
+              type: integer
+            total_pages:
+              type: integer
+
+    ProposalLinks:
+      type: object
+      properties:
+        self:
+          type: string
+        budget:
+          type: string
+        team:
+          type: string
+        documents:
+          type: string
+        actions:
+          type: string
+        history:
+          type: string
+
+    PaginationLinks:
+      type: object
+      properties:
+        self:
+          type: string
+        first:
+          type: string
+        prev:
+          type: string
+        next:
+          type: string
+        last:
+          type: string
+
+    # Error Schemas
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/APIError'
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+
+    APIError:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        field:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            errors:
+              - code: "UNAUTHORIZED"
+                message: "Authentication required"
+
+    Forbidden:
+      description: Permission denied
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            errors:
+              - code: "FORBIDDEN"
+                message: "You do not have permission to access this resource"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            errors:
+              - code: "NOT_FOUND"
+                message: "Proposal not found"
+
+    ValidationError:
+      description: Validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            errors:
+              - code: "VALIDATION_ERROR"
+                message: "Project end date must be after start date"
+                field: "project_end_date"
+
+    Conflict:
+      description: Conflict with current state
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            errors:
+              - code: "INVALID_STATE"
+                message: "Cannot edit proposal in current state"

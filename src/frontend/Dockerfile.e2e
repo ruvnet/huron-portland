@@ -1,0 +1,41 @@
+# =============================================================================
+# Huron Grants Frontend - E2E Testing with Playwright
+# =============================================================================
+# Containerized browser testing environment
+
+FROM mcr.microsoft.com/playwright:v1.40.0-jammy
+
+# Set working directory
+WORKDIR /app
+
+# Set environment variables
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+ENV CI=true
+ENV NODE_ENV=test
+
+# Install curl for healthchecks
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+
+# Copy package files first for better caching
+COPY package.json package-lock.json* yarn.lock* pnpm-lock.yaml* ./
+
+# Install dependencies
+RUN npm ci || npm install
+
+# Install Playwright and browsers
+RUN npx playwright install chromium --with-deps
+
+# Copy Playwright configuration
+COPY playwright.config.ts ./
+
+# Copy E2E test files
+COPY e2e ./e2e
+
+# Copy any shared utilities needed for tests
+COPY lib/types.ts ./lib/
+
+# Create directories for test outputs
+RUN mkdir -p test-results playwright-report
+
+# Default command to run tests
+CMD ["npm", "run", "test:e2e"]
