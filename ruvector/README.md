@@ -22,6 +22,11 @@ npm run gnn        # 06 - Graph Neural Network (native only)
 npm run graph-node # 07 - Native graph database
 npm run edge       # 08 - Browser WASM toolkit (API reference)
 npm run ruvector   # 09 - RuVector core (151 exports)
+npm run lifecycle  # 10 - Grant lifecycle tracker
+npm run matching   # 11 - Grant matching & recommendations
+npm run compliance # 12 - Compliance & audit trail
+npm run portfolio  # 13 - Portfolio analytics dashboard
+npm run dedup      # 14 - Deduplication & overlap detection
 ```
 
 ## Packages
@@ -74,6 +79,25 @@ Browser-first WASM toolkit with 6 modules: HNSW vector search, Graph DB, DAG wor
 ### 09 - RuVector Core ([details](docs/09-ruvector-core.md))
 The main `ruvector` meta-package with 151 exports across 8 categories: VectorDB, GNN, SONA, FlashAttention, Embeddings, Code Analysis, Intelligence, and Clustering.
 
+---
+
+### Huron Grant Management Examples
+
+### 10 - Grant Lifecycle Tracker ([details](docs/10-grant-lifecycle.md))
+Track grants through 8 lifecycle stages (Draft to Completed) with organizational structure, milestone progress bars, and automated risk alerts. Models Huron teams, reviewers, and client relationships.
+
+### 11 - Grant Matching & Recommendations ([details](docs/11-grant-matching.md))
+Match 8 federal funding opportunities to 7 Portland department capability profiles. Forward match (department -> opportunities) and reverse match (opportunity -> best department) with pipeline valuation.
+
+### 12 - Compliance & Audit Trail ([details](docs/12-compliance-audit.md))
+Track 2 CFR 200 compliance across grants with RDF triples, log audit events with semantic search, and generate compliance dashboards. Includes realistic findings for procurement, cost, and reporting.
+
+### 13 - Portfolio Analytics Dashboard ([details](docs/13-portfolio-analytics.md))
+Comprehensive analytics across 10 grants using 3 simultaneous RvLite databases (vector, SQL, graph). Executive summary, department/funder breakdowns, drawdown analysis, risk heatmap, and financial profile matching.
+
+### 14 - Grant Deduplication & Overlap Detection ([details](docs/14-grant-dedup.md))
+Detect duplicate and overlapping grant submissions across departments using pairwise vector similarity. Flags double-dipping risks and identifies cross-department coordination opportunities.
+
 ## Architecture
 
 ```
@@ -91,6 +115,11 @@ ruvector/
     07-graph-node.mjs         # @ruvector/graph-node - native graph
     08-edge-full.mjs          # @ruvector/edge-full - browser WASM
     09-ruvector-core.mjs      # ruvector - full AI stack
+    10-grant-lifecycle.mjs    # Huron lifecycle tracker
+    11-grant-matching.mjs     # Huron matching engine
+    12-compliance-audit.mjs   # Huron compliance & audit
+    13-portfolio-analytics.mjs # Huron portfolio dashboard
+    14-grant-dedup.mjs        # Huron deduplication
   docs/
     01-basic-vectors.md       # Detailed tutorial
     02-sql-queries.md
@@ -101,6 +130,11 @@ ruvector/
     07-graph-node.md
     08-edge-full.md
     09-ruvector-core.md
+    10-grant-lifecycle.md
+    11-grant-matching.md
+    12-compliance-audit.md
+    13-portfolio-analytics.md
+    14-grant-dedup.md
 ```
 
 ## WASM Loading in Node.js

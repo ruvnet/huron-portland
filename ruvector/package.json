@@ -14,6 +14,11 @@
     "graph-node": "node examples/07-graph-node.mjs",
     "edge": "node examples/08-edge-full.mjs",
     "ruvector": "node examples/09-ruvector-core.mjs",
+    "lifecycle": "node examples/10-grant-lifecycle.mjs",
+    "matching": "node examples/11-grant-matching.mjs",
+    "compliance": "node examples/12-compliance-audit.mjs",
+    "portfolio": "node examples/13-portfolio-analytics.mjs",
+    "dedup": "node examples/14-grant-dedup.mjs",
     "dashboard": "npx @ruvector/rvlite@latest serve",
     "repl": "npx @ruvector/rvlite@latest repl"
   },
