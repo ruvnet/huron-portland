@@ -1,0 +1,27 @@
+{
+  "name": "ruvector-examples",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "RuVector WASM examples for Huron Portland hackathon",
+  "private": true,
+  "scripts": {
+    "basic": "node examples/01-basic-vectors.mjs",
+    "sql": "node examples/02-sql-queries.mjs",
+    "sparql": "node examples/03-sparql-triples.mjs",
+    "cypher": "node examples/04-cypher-graph.mjs",
+    "grants": "node examples/05-grants-search.mjs",
+    "gnn": "node examples/06-gnn-inference.mjs",
+    "graph-node": "node examples/07-graph-node.mjs",
+    "edge": "node examples/08-edge-full.mjs",
+    "ruvector": "node examples/09-ruvector-core.mjs",
+    "dashboard": "npx @ruvector/rvlite@latest serve",
+    "repl": "npx @ruvector/rvlite@latest repl"
+  },
+  "dependencies": {
+    "@ruvector/rvlite": "^0.2.4",
+    "@ruvector/gnn": "^0.1.22",
+    "@ruvector/graph-node": "^0.1.26",
+    "@ruvector/edge-full": "^0.1.0",
+    "ruvector": "^0.1.96"
+  }
+}
